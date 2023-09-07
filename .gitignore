@@ -8,3 +8,4 @@ build
 correlation.egg-info
 logs
 checkpoints*
+env
