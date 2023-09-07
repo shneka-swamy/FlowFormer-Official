@@ -183,6 +183,14 @@ def generate_pairs(dirname, start_idx, end_idx):
 
     return img_pairs
 
+def process_img_names(dirname):
+    img_list = sorted(glob(osp.join(dirname, '*.png')))
+    count_images = len(img_list)
+    print(f"Found {count_images} images in {dirname}")
+    for idx, img in enumerate(img_list):
+        os.rename(img, osp.join(dirname, f'{idx+1:06}.png'))
+    return count_images
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--eval_type', default='sintel')
@@ -203,6 +211,10 @@ if __name__ == '__main__':
 
     if args.eval_type == 'sintel':
         img_pairs = process_sintel(args.sintel_dir)
+    # Added this part to evaluate TUM dataset
+    if args.eval_type == 'tum':
+        args.end_idx = process_img_names(args.seq_dir) 
+        img_pairs = generate_pairs(args.seq_dir, args.start_idx, args.end_idx)
     elif args.eval_type == 'seq':
         img_pairs = generate_pairs(args.seq_dir, args.start_idx, args.end_idx)
     with torch.no_grad():

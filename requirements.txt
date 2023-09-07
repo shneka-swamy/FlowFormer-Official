@@ -1,0 +1,12 @@
+torch==1.11.0
+torchvision==0.12.0
+#cudatoolkit==10.2
+matplotlib
+tensorboard
+scipy
+opencv-python
+yacs
+loguru
+einops
+timm==0.4.12
+imageio
