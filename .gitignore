@@ -9,3 +9,5 @@ correlation.egg-info
 logs
 checkpoints*
 env
+Datasets
+viz_results

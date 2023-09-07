@@ -1,5 +1,5 @@
 torch==1.13.1
-torchvision
+torchvision==0.14.1
 #cudatoolkit==10.2
 matplotlib
 tensorboard
@@ -10,3 +10,4 @@ loguru
 einops
 timm==0.4.12
 imageio
+tqdm

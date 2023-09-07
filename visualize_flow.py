@@ -18,6 +18,8 @@ from utils import frame_utils
 import cv2
 import math
 import os.path as osp
+from pathlib import Path
+from tqdm import tqdm
 
 from core.FlowFormer import build_flowformer
 
@@ -67,7 +69,7 @@ def compute_weight(hws, image_shape, patch_size=TRAIN_SIZE, sigma=1.0, wtype='ga
     return patch_weights
 
 def compute_flow(model, image1, image2, weights=None):
-    print(f"computing flow...")
+    # print(f"computing flow...")
 
     image_size = image1.shape[1:]
 
@@ -114,8 +116,8 @@ def compute_adaptive_image_size(image_size):
     return image_size
 
 def prepare_image(root_dir, viz_root_dir, fn1, fn2, keep_size):
-    print(f"preparing image...")
-    print(f"root dir = {root_dir}, fn = {fn1}")
+    # print(f"preparing image...")
+    # print(f"root dir = {root_dir}, fn = {fn1}")
 
     image1 = frame_utils.read_gen(osp.join(root_dir, fn1))
     image2 = frame_utils.read_gen(osp.join(root_dir, fn2))
@@ -131,6 +133,9 @@ def prepare_image(root_dir, viz_root_dir, fn1, fn2, keep_size):
 
     dirname = osp.dirname(fn1)
     filename = osp.splitext(osp.basename(fn1))[0]
+
+    dirname = Path(fn1).parent.parent.stem
+    filename = Path(fn1).stem
 
     viz_dir = osp.join(viz_root_dir, dirname)
     if not osp.exists(viz_dir):
@@ -153,11 +158,12 @@ def build_model():
 
 def visualize_flow(root_dir, viz_root_dir, model, img_pairs, keep_size):
     weights = None
-    for img_pair in img_pairs:
+    for img_pair in tqdm(img_pairs):
         fn1, fn2 = img_pair
-        print(f"processing {fn1}, {fn2}...")
+        # print(f"processing {fn1}, {fn2}...")
 
         image1, image2, viz_fn = prepare_image(root_dir, viz_root_dir, fn1, fn2, keep_size)
+        #print(f"image1 shape = {image1.shape}, image2 shape = {image2.shape}")
         flow = compute_flow(model, image1, image2, weights)
         flow_img = flow_viz.flow_to_image(flow)
         cv2.imwrite(viz_fn, flow_img[:, :, [2,1,0]])
@@ -190,7 +196,7 @@ def process_img_names(dirname):
     for idx, img in enumerate(img_list):
         os.rename(img, osp.join(dirname, f'{idx+1:06}.png'))
     return count_images
-
+    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--eval_type', default='sintel')
@@ -201,21 +207,42 @@ if __name__ == '__main__':
     parser.add_argument('--end_idx', type=int, default=1200)    # ending index of the image sequence
     parser.add_argument('--viz_root_dir', default='viz_results')
     parser.add_argument('--keep_size', action='store_true')     # keep the image size, or the image will be adaptively resized.
+    parser.add_argument('--only-videoize', action='store_true')
 
     args = parser.parse_args()
 
     root_dir = args.root_dir
     viz_root_dir = args.viz_root_dir
 
-    model = build_model()
+    if not args.only_videoize:
 
-    if args.eval_type == 'sintel':
-        img_pairs = process_sintel(args.sintel_dir)
-    # Added this part to evaluate TUM dataset
-    if args.eval_type == 'tum':
-        args.end_idx = process_img_names(args.seq_dir) 
-        img_pairs = generate_pairs(args.seq_dir, args.start_idx, args.end_idx)
-    elif args.eval_type == 'seq':
-        img_pairs = generate_pairs(args.seq_dir, args.start_idx, args.end_idx)
-    with torch.no_grad():
-        visualize_flow(root_dir, viz_root_dir, model, img_pairs, args.keep_size)
+        model = build_model()
+
+        if args.eval_type == 'sintel':
+            img_pairs = process_sintel(args.sintel_dir)
+        # Added this part to evaluate TUM dataset
+        if args.eval_type == 'tum':
+            args.end_idx = process_img_names(args.seq_dir)
+            img_pairs = generate_pairs(args.seq_dir, args.start_idx, args.end_idx)
+        elif args.eval_type == 'seq':
+            img_pairs = generate_pairs(args.seq_dir, args.start_idx, args.end_idx)
+        with torch.no_grad():
+            visualize_flow(root_dir, viz_root_dir, model, img_pairs, args.keep_size)
+
+    # read from viz_root_dir / dirname and write to a video viz_root_dir / dirname.mp4
+    for dirname in Path(viz_root_dir).iterdir():
+        if not dirname.is_dir():
+            continue
+        dirname = dirname.stem
+        print(f"processing {dirname}...")
+        filename = osp.join(viz_root_dir, f'{dirname}.mp4')
+        print(f"writing to {filename}...")
+        optical_list = sorted(glob(osp.join(viz_root_dir, dirname, '*.png')))
+        img = cv2.imread(optical_list[0])
+        height, width, layers = img.shape
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        video = cv2.VideoWriter(filename, fourcc, 30, (width, height))
+        for image in optical_list:
+            video.write(cv2.imread(image))
+        cv2.destroyAllWindows()
+        video.release()
