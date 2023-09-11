@@ -24,7 +24,7 @@ from timm.models.registry import register_model
 from timm.models.vision_transformer import Attention
 from timm.models.helpers import build_model_with_cfg, overlay_external_default_cfg
 from .attention import MultiHeadAttention, LinearPositionEmbeddingSine
-from utils.utils import coords_grid, bilinear_sampler, upflow8
+from ...utils.utils import coords_grid, bilinear_sampler, upflow8
 
 
 def _cfg(url='', **kwargs):

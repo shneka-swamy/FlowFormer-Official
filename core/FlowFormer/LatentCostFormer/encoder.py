@@ -9,7 +9,7 @@ import numpy as np
 from einops.layers.torch import Rearrange
 from einops import rearrange
 
-from utils.utils import coords_grid, bilinear_sampler, upflow8
+from ...utils.utils import coords_grid, bilinear_sampler, upflow8
 from .attention import BroadMultiHeadAttention, MultiHeadAttention, LinearPositionEmbeddingSine, ExpPositionEmbeddingSine
 from ..encoders import twins_svt_large
 from typing import Optional, Tuple

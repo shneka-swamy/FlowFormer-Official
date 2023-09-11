@@ -11,6 +11,7 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from configs.submission import get_cfg
+from configs.small_things_eval import get_cfg as get_small_things_cfg
 from core.utils.misc import process_cfg
 import datasets
 from utils import flow_viz
@@ -27,7 +28,6 @@ from utils.utils import InputPadder, forward_interpolate
 import itertools
 
 TRAIN_SIZE = [432, 960]
-
 
 def compute_grid_indices(image_shape, patch_size=TRAIN_SIZE, min_overlap=20):
   if min_overlap >= TRAIN_SIZE[0] or min_overlap >= TRAIN_SIZE[1]:
@@ -145,9 +145,12 @@ def prepare_image(root_dir, viz_root_dir, fn1, fn2, keep_size):
 
     return image1, image2, viz_fn
 
-def build_model():
+def build_model(args):
     print(f"building  model...")
-    cfg = get_cfg()
+    if args.small:
+        cfg = get_small_things_cfg()
+    else:
+        cfg = get_cfg()
     model = torch.nn.DataParallel(build_flowformer(cfg))
     model.load_state_dict(torch.load(cfg.model))
 
@@ -163,10 +166,40 @@ def visualize_flow(root_dir, viz_root_dir, model, img_pairs, keep_size):
         # print(f"processing {fn1}, {fn2}...")
 
         image1, image2, viz_fn = prepare_image(root_dir, viz_root_dir, fn1, fn2, keep_size)
-        #print(f"image1 shape = {image1.shape}, image2 shape = {image2.shape}")
+        print(f"image1 shape = {image1.shape}, image2 shape = {image2.shape}")
         flow = compute_flow(model, image1, image2, weights)
+
+
+        u_flow, v_flow = flow[:, :, 0], flow[:, :, 1]
+        # hist, x_edges, y_edges = np.histogram2d(flow[..., 0].ravel(), flow[..., 1].ravel(), bins=(u_flow, v_flow))
+        
+        flow_mag = np.sqrt(u_flow ** 2 + v_flow ** 2)
+        #flow_angle = np.arctan2(v_flow, u_flow)
+        # convert to degrees
+        #flow_angle = cv2.cartToPolar(u_flow, v_flow, angleInDegrees=True)[1]
+        # accept angles from 100 to 280 and angles from 80 to 260
+        #motion_mask = np.logical_or(np.logical_and(flow_angle > 100, flow_angle < 280), np.logical_and(flow_angle > 80, flow_angle < 260))
+        
+        flow_mean = np.mean(flow_mag)
+        motion_mask = flow_mag - flow_mean
+        # remove negative values
+        motion_mask = np.clip(motion_mask, 0, None)
+        motion_mask = motion_mask.astype(np.uint8) * 255
+
+        # Draw the motion mask
+        #cv2.imwrite(viz_fn, motion_mask.astype(np.uint8) * 255)
+        
         flow_img = flow_viz.flow_to_image(flow)
-        cv2.imwrite(viz_fn, flow_img[:, :, [2,1,0]])
+        image = flow_img[:, :, [2, 1, 0]]
+        # convert to grayscale
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # print("image shape = ", image.shape)
+        # print("image type = ", image.dtype)
+        #contour_image = np.ones_like(image)
+        contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(image, contours, -1, (0, 255, 0), 1)
+
+        cv2.imwrite(viz_fn, image)
 
 def process_sintel(sintel_dir):
     img_pairs = []
@@ -208,6 +241,7 @@ if __name__ == '__main__':
     parser.add_argument('--viz_root_dir', default='viz_results')
     parser.add_argument('--keep_size', action='store_true')     # keep the image size, or the image will be adaptively resized.
     parser.add_argument('--only-videoize', action='store_true')
+    parser.add_argument('--small', action='store_true')
 
     args = parser.parse_args()
 
@@ -216,7 +250,7 @@ if __name__ == '__main__':
 
     if not args.only_videoize:
 
-        model = build_model()
+        model = build_model(args)
 
         if args.eval_type == 'sintel':
             img_pairs = process_sintel(args.sintel_dir)

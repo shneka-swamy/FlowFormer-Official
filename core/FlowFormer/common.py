@@ -6,7 +6,7 @@ from torch import einsum
 from einops.layers.torch import Rearrange
 from einops import rearrange
 
-from utils.utils import coords_grid, bilinear_sampler, indexing
+from ..utils.utils import coords_grid, bilinear_sampler, indexing
 from loguru import logger
 
 import math

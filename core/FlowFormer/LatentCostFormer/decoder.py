@@ -8,7 +8,7 @@ from torch import einsum
 from einops.layers.torch import Rearrange
 from einops import rearrange
 
-from utils.utils import coords_grid, bilinear_sampler, upflow8
+from ...utils.utils import coords_grid, bilinear_sampler, upflow8
 from .attention import MultiHeadAttention, LinearPositionEmbeddingSine, ExpPositionEmbeddingSine
 from typing import Optional, Tuple
 
